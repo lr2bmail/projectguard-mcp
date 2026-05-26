@@ -408,11 +408,11 @@ Never mark complete if final_project_score.approved is false.
 
 
 def main() -> None:
-    transport = os.getenv("PROJECTGUARD_TRANSPORT", "streamable-http")
-    if transport == "stdio":
-        mcp.run(transport="stdio")
+    transport = os.getenv("PROJECTGUARD_TRANSPORT", "stdio").lower()
+    if transport in {"http", "streamable-http", "streamable_http"}:
+        mcp.run(transport="streamable-http")
         return
-    mcp.run(transport="streamable-http")
+    mcp.run(transport="stdio")
 
 
 if __name__ == "__main__":
