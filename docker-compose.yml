@@ -1,0 +1,11 @@
+services:
+  projectguard-mcp:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    environment:
+      PROJECTGUARD_TRANSPORT: streamable-http
+      PROJECTGUARD_HOST: 127.0.0.1
+      PROJECTGUARD_PORT: 8000
+    ports:
+      - "127.0.0.1:8000:8000"
