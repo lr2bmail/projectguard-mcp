@@ -6,6 +6,20 @@ It is designed for tools like **Claude Code**, **Codex**, and other MCP-capable 
 
 ProjectGuard does **not** edit files, run arbitrary shell commands, deploy apps, or delete anything. It gives the AI structured checks before and after coding.
 
+## Recommended mode
+
+For local coding agents, use **stdio**.
+
+```text
+Recommended local mode: stdio
+Optional shared/server mode: streamable-http
+Deprecated/avoid for new setup: SSE
+```
+
+Stdio does not require you to run a separate HTTP server. Claude Code or Codex starts ProjectGuard as a local MCP process when needed.
+
+Use HTTP only when you want a long-running shared MCP endpoint, Docker deployment, MCP Inspector testing, or multiple clients connecting to the same ProjectGuard server.
+
 ## Why use it
 
 AI agents are fast, but they often create:
@@ -66,33 +80,27 @@ pip install -e ".[dev]"
 pytest
 ```
 
-## Run ProjectGuard MCP
+## Run modes
 
-Default HTTP mode:
-
-```bash
-projectguard-mcp
-```
-
-Default endpoint:
-
-```text
-http://127.0.0.1:8000/mcp
-```
-
-Stdio mode:
+### Stdio mode — recommended for Claude Code/Codex
 
 ```bash
 PROJECTGUARD_TRANSPORT=stdio projectguard-mcp
 ```
 
-## Test with MCP Inspector
+The code default is also stdio, so this works too:
 
 ```bash
-npx -y @modelcontextprotocol/inspector
+projectguard-mcp
 ```
 
-Connect to:
+### HTTP mode — optional shared/server mode
+
+```bash
+PROJECTGUARD_TRANSPORT=streamable-http projectguard-mcp
+```
+
+Default HTTP endpoint:
 
 ```text
 http://127.0.0.1:8000/mcp
@@ -100,16 +108,12 @@ http://127.0.0.1:8000/mcp
 
 ## Add to Claude Code
 
-Start ProjectGuard first:
+Recommended stdio setup:
 
 ```bash
-projectguard-mcp
-```
-
-Then add it to Claude Code:
-
-```bash
-claude mcp add --transport http --scope local projectguard http://127.0.0.1:8000/mcp
+claude mcp add --transport stdio --scope user projectguard \
+  --env PROJECTGUARD_TRANSPORT=stdio \
+  -- projectguard-mcp
 ```
 
 Check it inside Claude Code:
@@ -118,7 +122,7 @@ Check it inside Claude Code:
 /mcp
 ```
 
-For better behavior, copy this file into the project Claude Code will work on:
+For persistent project behavior, copy this file into the project Claude Code will work on:
 
 ```text
 examples/claude-code/CLAUDE.md
@@ -130,24 +134,21 @@ Optional project-scoped MCP config:
 examples/claude-code/.mcp.json
 ```
 
-## Add to Codex
-
-Start ProjectGuard first:
+HTTP alternative for Claude Code:
 
 ```bash
-projectguard-mcp
+PROJECTGUARD_TRANSPORT=streamable-http projectguard-mcp
+claude mcp add --transport http --scope local projectguard http://127.0.0.1:8000/mcp
 ```
 
-Copy the HTTP config into `~/.codex/config.toml` or a trusted project `.codex/config.toml`:
+## Add to Codex
+
+Recommended stdio setup:
+
+Copy this config into `~/.codex/config.toml` or a trusted project `.codex/config.toml`:
 
 ```text
 examples/codex/config.toml
-```
-
-Alternative stdio config:
-
-```text
-examples/codex/config-stdio.toml
 ```
 
 Then copy this into the project Codex will work on:
@@ -160,6 +161,27 @@ Check MCP servers inside Codex:
 
 ```text
 /mcp
+```
+
+HTTP alternative for Codex:
+
+```text
+examples/codex/config-http.toml
+```
+
+## Test with MCP Inspector
+
+MCP Inspector is easier with HTTP mode:
+
+```bash
+PROJECTGUARD_TRANSPORT=streamable-http projectguard-mcp
+npx -y @modelcontextprotocol/inspector
+```
+
+Connect to:
+
+```text
+http://127.0.0.1:8000/mcp
 ```
 
 ## Required agent workflow
@@ -213,6 +235,8 @@ codex_projectguard_workflow
 
 ## Docker
 
+Docker uses HTTP mode because containers are easier to expose through a local port:
+
 ```bash
 docker compose up --build
 ```
@@ -249,7 +273,7 @@ examples/claude-code/CLAUDE.md
 examples/claude-code/.mcp.json
 examples/codex/AGENTS.md
 examples/codex/config.toml
-examples/codex/config-stdio.toml
+examples/codex/config-http.toml
 ```
 
 ## Safety model
@@ -273,8 +297,10 @@ Future write/deploy tools should require:
 
 ## Production notes
 
-- Keep the MCP endpoint local-only unless protected by authentication.
-- Do not expose it publicly without auth and rate limiting.
+- Use stdio for local Claude Code/Codex usage.
+- Use HTTP only for shared/team/server mode.
+- Keep HTTP bound to `127.0.0.1` unless protected by authentication and rate limiting.
+- Do not expose HTTP publicly without auth.
 - Keep v1 as a quality gate, not an autonomous deployer.
 - Add CI checks before using it as a hard gate in production.
 - For paid SaaS, use `review_paid_launch_readiness` before public launch.
