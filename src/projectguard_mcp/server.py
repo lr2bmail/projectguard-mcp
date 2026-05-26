@@ -20,7 +20,93 @@ from projectguard_mcp.reviewers.ux import review_ux_checklist as _review_ux_chec
 from projectguard_mcp.rules import rules_for_project
 from projectguard_mcp.scoring import final_project_score as _final_project_score
 
-mcp = FastMCP("ProjectGuard MCP", json_response=True)
+PROJECTGUARD_INSTRUCTIONS = """
+ProjectGuard MCP is a quality gate for AI coding agents.
+
+Use it before and after building apps, websites, SaaS products, dashboards, APIs,
+scripts, and paid digital services. Always start with start_project_review unless the
+user explicitly asks for a single review tool.
+
+Required workflow:
+1. start_project_review
+2. create_project_brief
+3. create_build_rules
+4. review_file_plan before writing files
+5. implementation
+6. review_project_text, review_code_quality, review_security
+7. review_seo for public websites
+8. review_paid_launch_readiness for paid, payment, account-balance, proxy, VPN,
+   email API, scanner, or other abuse-sensitive services
+9. final_project_score
+
+Do not mark a project complete when final_project_score.approved is false. Never create
+fake features, fake integrations, fake testimonials, placeholder buttons, or filler text
+as if they are production-ready.
+""".strip()
+
+REQUIRED_WORKFLOW = [
+    "start_project_review",
+    "create_project_brief",
+    "create_build_rules",
+    "review_file_plan",
+    "implementation",
+    "review_project_text",
+    "review_code_quality",
+    "review_security",
+    "review_seo_if_public_website",
+    "review_paid_launch_readiness_if_paid_or_abuse_sensitive",
+    "final_project_score",
+]
+
+HARD_RULES = [
+    "Do not create or edit files before review_file_plan passes.",
+    "Do not mark complete unless final_project_score.approved is true.",
+    "Do not create fake features, fake integrations, fake testimonials, or filler text.",
+    "Do not rewrite unrelated files or ignore the existing project structure.",
+    "For paid or abuse-sensitive services, run paid launch readiness before final approval.",
+]
+
+mcp = FastMCP(
+    "ProjectGuard MCP",
+    instructions=PROJECTGUARD_INSTRUCTIONS,
+    json_response=True,
+)
+
+
+@mcp.tool()
+def start_project_review(
+    project_type: str,
+    user_request: str,
+    features: list[str] | None = None,
+) -> dict[str, Any]:
+    """
+    Start here before building any app, website, SaaS, dashboard, API, or script.
+
+    Returns the required ProjectGuard workflow, risk flags, missing details, required
+    review gates, hard rules, and the next tool the coding agent should call.
+    """
+    risk = _classify_project_risk(project_type, user_request, features)
+    analysis = _analyze_project_request(project_type, user_request)
+    required_reviews = ["review_file_plan", "review_project_text", "review_code_quality", "review_security"]
+
+    if any(word in project_type.lower() for word in ["website", "seo", "landing", "tools"]):
+        required_reviews.append("review_seo")
+    if risk.get("requires_paid_launch_review") or risk.get("requires_aup_review"):
+        required_reviews.append("review_paid_launch_readiness")
+
+    return {
+        "status": "started",
+        "required_workflow": REQUIRED_WORKFLOW,
+        "required_reviews": required_reviews,
+        "risk": risk,
+        "request_analysis": analysis,
+        "next_tool": "create_project_brief",
+        "hard_rules": HARD_RULES,
+        "client_usage_hint": (
+            "Claude Code should keep these rules in CLAUDE.md. Codex should keep these rules in AGENTS.md. "
+            "Both clients should connect this MCP server and call start_project_review first."
+        ),
+    }
 
 
 @mcp.tool()
@@ -148,10 +234,106 @@ def final_project_score(
     return _final_project_score(code_score, ux_score, security_score, seo_score, paid_launch_score)
 
 
+@mcp.resource("projectguard://workflow/agent")
+def agent_workflow_resource() -> str:
+    """Canonical ProjectGuard workflow for AI coding agents."""
+    return PROJECTGUARD_INSTRUCTIONS
+
+
+@mcp.resource("projectguard://workflow/claude-code")
+def claude_code_workflow_resource() -> str:
+    """Claude Code usage rules for ProjectGuard."""
+    return """
+Use ProjectGuard MCP as the quality gate in Claude Code.
+
+Before coding:
+- Call start_project_review.
+- Call create_project_brief and create_build_rules.
+- Call review_file_plan and wait for approval before writing files.
+
+After coding:
+- Call review_project_text, review_code_quality, review_security, and final_project_score.
+- Call review_seo for public websites.
+- Call review_paid_launch_readiness for paid/payment/account-balance/abuse-sensitive projects.
+
+Put these rules in CLAUDE.md for persistent project behavior.
+""".strip()
+
+
+@mcp.resource("projectguard://workflow/codex")
+def codex_workflow_resource() -> str:
+    """Codex usage rules for ProjectGuard."""
+    return """
+Use ProjectGuard MCP as the quality gate in Codex.
+
+Before coding:
+- Call start_project_review.
+- Call create_project_brief and create_build_rules.
+- Call review_file_plan and wait for approval before writing files.
+
+After coding:
+- Call review_project_text, review_code_quality, review_security, and final_project_score.
+- Call review_seo for public websites.
+- Call review_paid_launch_readiness for paid/payment/account-balance/abuse-sensitive projects.
+
+Put these rules in AGENTS.md for persistent project behavior. Configure MCP in ~/.codex/config.toml
+or project-scoped .codex/config.toml for trusted projects.
+""".strip()
+
+
 @mcp.resource("projectguard://rules/general")
 def general_rules_resource() -> str:
     """General anti-slop build rules."""
     return "\n".join(rules_for_project("general"))
+
+
+@mcp.resource("projectguard://rules/website")
+def website_rules_resource() -> str:
+    """Website and SEO anti-slop build rules."""
+    return "\n".join(rules_for_project("website", ["public_website"]))
+
+
+@mcp.resource("projectguard://rules/saas")
+def saas_rules_resource() -> str:
+    """SaaS and web-app anti-slop build rules."""
+    return "\n".join(rules_for_project("saas", ["user_data", "deployment"]))
+
+
+@mcp.resource("projectguard://rules/paid-launch")
+def paid_launch_rules_resource() -> str:
+    """Paid SaaS and digital-service readiness rules."""
+    return "\n".join(rules_for_project("paid saas", ["paid", "payment", "account_balance", "abuse_sensitive"]))
+
+
+@mcp.resource("projectguard://examples/good-file-plan")
+def good_file_plan_resource() -> str:
+    """Example of a better file plan for a Flask SaaS."""
+    return """
+app.py
+config.py
+routes/auth.py
+routes/billing.py
+routes/tools.py
+models/user.py
+models/invoice.py
+templates/base.html
+templates/index.html
+templates/dashboard.html
+static/css/app.css
+static/js/app.js
+tests/test_auth.py
+tests/test_billing.py
+""".strip()
+
+
+@mcp.resource("projectguard://examples/bad-file-plan")
+def bad_file_plan_resource() -> str:
+    """Example of a weak file plan that should be rejected."""
+    return """
+index.html
+style.css
+script.js
+""".strip()
 
 
 @mcp.prompt()
@@ -161,11 +343,10 @@ def coding_agent_workflow(project_type: str = "web app") -> str:
 You are building a {project_type} and you are connected to ProjectGuard MCP.
 
 Before coding:
-1. Call classify_project_risk.
-2. Call analyze_project_request.
-3. Call create_project_brief.
-4. Call create_build_rules.
-5. Call review_file_plan and do not create files until the plan passes.
+1. Call start_project_review.
+2. Call create_project_brief.
+3. Call create_build_rules.
+4. Call review_file_plan and do not create files until the plan passes.
 
 After coding:
 1. Call review_project_text for public copy/README/final answer.
@@ -176,6 +357,53 @@ After coding:
 6. Call final_project_score.
 
 Never mark the project complete if final_project_score.approved is false.
+""".strip()
+
+
+@mcp.prompt()
+def projectguard_start(project_type: str = "web app") -> str:
+    """Use this at the start of any AI coding task."""
+    return coding_agent_workflow(project_type)
+
+
+@mcp.prompt()
+def projectguard_final_review(project_type: str = "web app") -> str:
+    """Use this before marking an AI coding task complete."""
+    return f"""
+Before marking the {project_type} task complete, call ProjectGuard final review tools:
+1. review_project_text
+2. review_code_quality
+3. review_security
+4. review_seo if this is a public website
+5. review_paid_launch_readiness if this is paid, account-based, payment-based, or abuse-sensitive
+6. final_project_score
+
+Do not say the task is complete unless final_project_score.approved is true.
+""".strip()
+
+
+@mcp.prompt()
+def claude_code_projectguard_workflow(project_type: str = "web app") -> str:
+    """Claude Code prompt for using ProjectGuard as a quality gate."""
+    return coding_agent_workflow(project_type)
+
+
+@mcp.prompt()
+def codex_projectguard_workflow(project_type: str = "web app") -> str:
+    """Codex prompt for using ProjectGuard as a quality gate."""
+    return f"""
+You are Codex working on a {project_type}. ProjectGuard MCP is available.
+
+Follow this gate:
+1. Call start_project_review before planning code changes.
+2. Call create_project_brief and create_build_rules.
+3. Call review_file_plan and do not edit files until it passes.
+4. Implement only the approved scope.
+5. Run review_project_text, review_code_quality, review_security, and final_project_score.
+6. Add review_seo for public websites.
+7. Add review_paid_launch_readiness for paid/payment/account-balance/abuse-sensitive projects.
+
+Never mark complete if final_project_score.approved is false.
 """.strip()
 
 
