@@ -1,8 +1,9 @@
+# Recommended local setup for Codex.
 # Copy this into ~/.codex/config.toml or a trusted project's .codex/config.toml.
-# Start ProjectGuard first with: projectguard-mcp
 
 [mcp_servers.projectguard]
-url = "http://127.0.0.1:8000/mcp"
+command = "projectguard-mcp"
+env = { PROJECTGUARD_TRANSPORT = "stdio" }
 enabled = true
 required = false
 default_tools_approval_mode = "auto"
