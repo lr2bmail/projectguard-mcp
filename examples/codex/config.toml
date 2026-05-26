@@ -1,0 +1,10 @@
+# Copy this into ~/.codex/config.toml or a trusted project's .codex/config.toml.
+# Start ProjectGuard first with: projectguard-mcp
+
+[mcp_servers.projectguard]
+url = "http://127.0.0.1:8000/mcp"
+enabled = true
+required = false
+default_tools_approval_mode = "auto"
+startup_timeout_sec = 20
+tool_timeout_sec = 60
