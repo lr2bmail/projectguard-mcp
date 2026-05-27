@@ -28,3 +28,7 @@ def file_ext(path: str) -> str:
     if "." not in name:
         return ""
     return name.rsplit(".", 1)[-1].lower()
+
+
+def strip_html_tags(html: str) -> str:
+    return re.sub(r"<[^>]+>", " ", html)
