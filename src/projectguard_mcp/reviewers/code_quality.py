@@ -147,21 +147,29 @@ def review_code_quality(files: dict[str, str]) -> dict:
 
     if not files:
         findings.append(Finding("NO_CODE", "critical", "No code files were provided."))
+        score = score_from_findings(findings)
+        return ReviewResult(
+            approved=False, score=score, findings=findings,
+            summary="No code files were provided.",
+            metadata={"file_count": 0},
+        ).to_dict()
 
     for path, content in files.items():
         ext = file_ext(path)
         lowered = content.lower()
+        is_test = "test" in path.lower() or "spec" in path.lower()
 
-        for pattern in SECRET_PATTERNS:
-            if re.search(pattern, content):
-                findings.append(Finding(
-                    code="POSSIBLE_SECRET",
-                    severity="critical",
-                    message="Possible secret or credential found in source code.",
-                    recommendation="Move secrets to environment variables or a secret manager.",
-                    path=path,
-                ))
-                break
+        if not is_test:
+            for pattern in SECRET_PATTERNS:
+                if re.search(pattern, content):
+                    findings.append(Finding(
+                        code="POSSIBLE_SECRET",
+                        severity="critical",
+                        message="Possible secret or credential found in source code.",
+                        recommendation="Move secrets to environment variables or a secret manager.",
+                        path=path,
+                    ))
+                    break
 
         if "todo" in lowered or "fixme" in lowered:
             findings.append(Finding(

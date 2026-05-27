@@ -10,7 +10,7 @@ def normalize_text(value: str | None) -> str:
 
 
 def contains_any(text: str, keywords: Iterable[str]) -> bool:
-    lowered = text.lower()
+    lowered = (text or "").lower()
     return any(keyword.lower() in lowered for keyword in keywords)
 
 
@@ -19,6 +19,8 @@ def count_words(text: str) -> int:
 
 
 def safe_path_parts(path: str) -> tuple[str, ...]:
+    if not path:
+        return ()
     clean = str(PurePosixPath(path.replace("\\", "/")))
     return tuple(part for part in clean.split("/") if part and part != ".")
 
@@ -31,4 +33,4 @@ def file_ext(path: str) -> str:
 
 
 def strip_html_tags(html: str) -> str:
-    return re.sub(r"<[^>]+>", " ", html)
+    return re.sub(r"<[^>]+>", " ", html or "")

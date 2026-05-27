@@ -7,6 +7,7 @@ from projectguard_mcp.utils import contains_any, count_words
 
 def analyze_project_request(project_type: str, user_request: str) -> dict:
     findings: list[Finding] = []
+    user_request = user_request or ""
     word_count = count_words(user_request)
     lowered = user_request.lower()
 

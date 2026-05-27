@@ -202,6 +202,14 @@ def review_seo(public_pages: dict[str, str]) -> dict:
 
     if not public_pages:
         findings.append(Finding("NO_PUBLIC_PAGES", "medium", "No public page HTML was provided for SEO review."))
+        score = score_from_findings(findings)
+        return ReviewResult(
+            approved=approval_from_score(score, 85),
+            score=score,
+            findings=findings,
+            summary="No pages provided for SEO review.",
+            metadata={"page_count": 0},
+        ).to_dict()
 
     for path, html in public_pages.items():
         _check_page_seo(path, html, findings)

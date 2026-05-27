@@ -208,7 +208,7 @@ def _check_file_security(path: str, content: str, ext: str, findings: list[Findi
         ))
 
     # -- Insecure session config --
-    if re.search(r"SESSION_COOKIE_SECURE\s*=\s*False|cookie\s*=\s*{.*secure\s*:\s*False", content, re.I):
+    if re.search(r"SESSION_COOKIE_SECURE['\"\]]*\s*=\s*False|cookie\s*=\s*{.*secure\s*:\s*False", content, re.I):
         findings.append(Finding(
             code="INSECURE_SESSION_CONFIG",
             severity="high",
@@ -262,9 +262,13 @@ def _check_file_security(path: str, content: str, ext: str, findings: list[Findi
 
 def review_security(project_type: str, files: dict[str, str], features: list[str] | None = None) -> dict:
     findings: list[Finding] = []
+    files = files or {}
     features_text = " ".join(features or []).lower()
     all_text = "\n".join(files.values()).lower()
     pt = project_type.lower()
+
+    if not files:
+        findings.append(Finding("NO_FILES", "critical", "No code files were provided for security review."))
 
     _check_project_level_security(pt, features_text, all_text, files, findings)
 

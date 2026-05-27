@@ -122,7 +122,7 @@ DEPRECATED_SCHEMA_TYPES: list[str] = [
 ]
 
 # -- Security patterns --
-SQL_INJECTION_PATTERN: str = r"SELECT\s+.+\s+FROM\s+.+\+"
+SQL_INJECTION_PATTERN: str = r"[\"']SELECT\s+.+\s+FROM\s+.+[\"']\s*\+|f[\"']SELECT\s+.+FROM\s+.+\{|\"SELECT\s+.+\s+FROM\s+.+\"\s*\+"
 
 # -- Debug/local URL patterns --
 LOCAL_URL_PATTERNS: list[str] = [
