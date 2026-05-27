@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from projectguard_mcp.config import RISK_FLAGS_FOR_HIGH_RISK
 from projectguard_mcp.utils import contains_any
 
 PAID_KEYWORDS = [
@@ -46,7 +47,7 @@ def classify_project_risk(project_type: str, description: str, features: list[st
         reasons.append("The project mentions production/deployment/server operations.")
 
     risk_level = "low"
-    if len(flags) >= 3 or "paid" in flags and "abuse_sensitive" in flags:
+    if len(flags) >= RISK_FLAGS_FOR_HIGH_RISK or ("paid" in flags and "abuse_sensitive" in flags):
         risk_level = "high"
     elif flags:
         risk_level = "medium"

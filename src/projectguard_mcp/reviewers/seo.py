@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 
 from projectguard_mcp.config import (
+    DEFAULT_PAGE_WORD_COUNT,
     DEPRECATED_SCHEMA_TYPES,
     PAGE_WORD_COUNT_MINIMUMS,
     SEO_META_DESC_MAX_LENGTH,
@@ -45,10 +46,10 @@ def _check_page_seo(path: str, html: str, findings: list[Finding]) -> None:
 
     # -- Meta description --
     meta_match = re.search(
-        r'<meta[^>]+name\s*=\s*["\']description["\'][^>]+content\s*=\s*["\']([^"\']*)["\']',
+        r'<meta[^>]+name\s*=\s*["\']?description["\']?[^>]+content\s*=\s*["\']([^"\']*)["\']',
         h,
     ) or re.search(
-        r'<meta[^>]+content\s*=\s*["\']([^"\']*)["\'][^>]+name\s*=\s*["\']description["\']',
+        r'<meta[^>]+content\s*=\s*["\']([^"\']*)["\'][^>]+name\s*=\s*["\']?description["\']?',
         h,
     )
     if not meta_match:
@@ -186,7 +187,7 @@ def _check_page_seo(path: str, html: str, findings: list[Finding]) -> None:
     visible_text = strip_html_tags(html)
     word_count = count_words(visible_text)
     page_type = _detect_page_type(path)
-    minimum = PAGE_WORD_COUNT_MINIMUMS.get(page_type, 300)
+    minimum = PAGE_WORD_COUNT_MINIMUMS.get(page_type, DEFAULT_PAGE_WORD_COUNT)
     if word_count < minimum:
         findings.append(Finding(
             "THIN_CONTENT", "medium",

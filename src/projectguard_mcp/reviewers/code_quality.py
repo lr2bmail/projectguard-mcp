@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 
 from projectguard_mcp.config import (
+    COMMENTED_CODE_MIN_LINES,
     LARGE_FILE_LINE_THRESHOLD,
     LOCAL_URL_PATTERNS,
     MIN_FILES_FOR_TEST_CHECK,
@@ -73,7 +74,7 @@ def _check_commented_out_code(path: str, content: str, ext: str, findings: list[
         stripped = line.strip()
         if stripped.startswith(comment_prefix) and code_keywords.search(stripped):
             consecutive += 1
-            if consecutive >= 3:
+            if consecutive >= COMMENTED_CODE_MIN_LINES:
                 findings.append(Finding(
                     code="COMMENTED_OUT_CODE",
                     severity="low",

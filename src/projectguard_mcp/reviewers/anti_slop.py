@@ -5,6 +5,8 @@ import re
 from projectguard_mcp.config import (
     ADDITIONAL_SLOP_PATTERNS,
     ANTI_SLOP_PATTERNS,
+    EMPTY_SECTION_MAX_HEADING_LEN,
+    EMPTY_SECTION_MIN_WORDS,
     EXCLAMATION_SPAM_THRESHOLD,
     MIN_TEXT_LENGTH,
 )
@@ -20,7 +22,7 @@ def _check_empty_sections(text: str, findings: list[Finding]) -> None:
             heading = lines[0].strip()
             body = " ".join(lines[1:]).strip()
             word_count = count_words(body)
-            if word_count < 5 and len(heading) > 0 and len(heading) < 200:
+            if word_count < EMPTY_SECTION_MIN_WORDS and len(heading) > 0 and len(heading) < EMPTY_SECTION_MAX_HEADING_LEN:
                 findings.append(Finding(
                     code="EMPTY_SECTION",
                     severity="medium",

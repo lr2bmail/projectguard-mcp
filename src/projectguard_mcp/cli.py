@@ -5,9 +5,11 @@ import json
 import sys
 from pathlib import Path
 
+from projectguard_mcp.config import APPROVAL_THRESHOLDS, BLOCKING_THRESHOLDS
 from projectguard_mcp.reviewers.anti_slop import review_project_text
 from projectguard_mcp.reviewers.code_quality import review_code_quality
 from projectguard_mcp.reviewers.file_plan import review_file_plan
+from projectguard_mcp.reviewers.security import review_security
 from projectguard_mcp.scoring import final_project_score
 
 
@@ -28,17 +30,27 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     files = _read_files(args.files)
-    results = {
-        "file_plan": review_file_plan(args.project_type, list(files.keys())),
-        "code_quality": review_code_quality(files),
-        "text": review_project_text(args.text) if args.text else None,
-    }
-    ux_score = 85
+    results: dict = {}
+
+    results["file_plan"] = review_file_plan(args.project_type, list(files.keys()))
+    results["code_quality"] = review_code_quality(files)
+    results["security"] = review_security(args.project_type, files)
+
+    if args.text:
+        results["text"] = review_project_text(args.text)
+
+    code_score = results["code_quality"]["score"]
+    security_score = results["security"]["score"]
     seo_score = 100
+    ux_score = APPROVAL_THRESHOLDS["default"]
+
+    if security_score < BLOCKING_THRESHOLDS["security_score"]:
+        ux_score = min(ux_score, security_score)
+
     results["final"] = final_project_score(
-        code_score=results["code_quality"]["score"],
+        code_score=code_score,
         ux_score=ux_score,
-        security_score=85,
+        security_score=security_score,
         seo_score=seo_score,
     )
     print(json.dumps(results, indent=2))

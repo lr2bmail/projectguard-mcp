@@ -305,6 +305,74 @@ def paid_launch_rules_resource() -> str:
     return "\n".join(rules_for_project("paid saas", ["paid", "payment", "account_balance", "abuse_sensitive"]))
 
 
+@mcp.resource("projectguard://checks/security")
+def security_checks_resource() -> str:
+    """List of all security checks performed by review_security."""
+    return """
+SQL injection (string concatenation in queries)
+XSS via innerHTML without sanitization
+SSRF via user-controlled URLs in HTTP clients
+Insecure deserialization (pickle, yaml, eval, exec)
+Framework XSS (dangerouslySetInnerHTML, v-html, |safe, html_safe, document.write)
+Weak crypto (md5, sha1, insecure random for tokens)
+Hardcoded credentials in source code
+Debug mode enabled (Flask/Django DEBUG=True)
+CORS wildcard origin (allow_origins=*)
+Path traversal (../ patterns in file paths)
+Insecure session config (SESSION_COOKIE_SECURE=False)
+JWT with algorithm=none
+Missing Content-Security-Policy header
+Missing CSRF protection for auth projects
+Missing rate limiting for auth/API flows
+Missing file upload validation
+Missing payment webhook handling
+Missing payment idempotency
+""".strip()
+
+
+@mcp.resource("projectguard://checks/seo")
+def seo_checks_resource() -> str:
+    """List of all SEO checks performed by review_seo."""
+    return """
+Title tag presence and length (30-70 chars)
+Meta description presence and length (100-170 chars)
+Canonical link presence, HTTPS, and uniqueness
+OpenGraph tags (title, description, image, url, type)
+Twitter Card meta tags
+H1 tag presence and uniqueness (exactly one)
+Heading hierarchy (no skipped levels)
+Viewport meta tag for mobile
+HTML lang attribute
+Meta robots noindex trap detection
+Image alt text presence and quality
+Image width/height for CLS prevention
+JSON-LD structured data presence
+Deprecated schema types (HowTo, FAQPage, SpecialAnnouncement)
+Content word count vs page type minimum
+HTTPS in canonical URL
+Legal footer links on homepage
+""".strip()
+
+
+@mcp.resource("projectguard://checks/code-quality")
+def code_quality_checks_resource() -> str:
+    """List of all code quality checks performed by review_code_quality."""
+    return """
+Secret/credential detection (Stripe, Slack, AWS, API keys)
+TODO/FIXME markers
+Weak exception handling (Python broad except)
+Risky command execution (os.system, subprocess shell=True)
+Debug statements (console.log, debugger, breakpoint)
+Hardcoded local URLs (localhost, 127.0.0.1)
+Commented-out code blocks (3+ lines)
+Empty catch/except blocks
+Large files (>500 lines)
+Async without error handling
+Ambiguous HTML buttons
+Missing test files
+""".strip()
+
+
 @mcp.resource("projectguard://examples/good-file-plan")
 def good_file_plan_resource() -> str:
     """Example of a better file plan for a Flask SaaS."""
@@ -410,7 +478,12 @@ Never mark complete if final_project_score.approved is false.
 def main() -> None:
     transport = os.getenv("PROJECTGUARD_TRANSPORT", "stdio").lower()
     if transport in {"http", "streamable-http", "streamable_http"}:
-        mcp.run(transport="streamable-http")
+        host = os.getenv("PROJECTGUARD_HOST", "127.0.0.1")
+        try:
+            port = int(os.getenv("PROJECTGUARD_PORT", "8000"))
+        except ValueError:
+            port = 8000
+        mcp.run(transport="streamable-http", host=host, port=port)
         return
     mcp.run(transport="stdio")
 

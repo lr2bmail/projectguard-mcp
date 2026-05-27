@@ -253,7 +253,7 @@ def _check_file_security(path: str, content: str, ext: str, findings: list[Findi
         if "content-security-policy" not in lowered and "csp" not in lowered:
             findings.append(Finding(
                 code="MISSING_CSP",
-                severity="low",
+                severity="medium",
                 message="HTML page is missing Content-Security-Policy header.",
                 recommendation="Add CSP headers to prevent XSS and data injection attacks.",
                 path=path,
