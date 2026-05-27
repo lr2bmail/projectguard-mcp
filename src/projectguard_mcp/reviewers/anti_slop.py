@@ -2,16 +2,53 @@ from __future__ import annotations
 
 import re
 
-from projectguard_mcp.config import ANTI_SLOP_PATTERNS, MIN_TEXT_LENGTH
+from projectguard_mcp.config import (
+    ADDITIONAL_SLOP_PATTERNS,
+    ANTI_SLOP_PATTERNS,
+    EXCLAMATION_SPAM_THRESHOLD,
+    MIN_TEXT_LENGTH,
+)
 from projectguard_mcp.models import Finding, ReviewResult, approval_from_score, score_from_findings
+from projectguard_mcp.utils import count_words
+
+
+def _check_empty_sections(text: str, findings: list[Finding]) -> None:
+    sections = re.split(r"\n#{1,6}\s|\n(?=<h[1-6])", text)
+    for section in sections:
+        lines = section.strip().split("\n")
+        if lines:
+            heading = lines[0].strip()
+            body = " ".join(lines[1:]).strip()
+            word_count = count_words(body)
+            if word_count < 5 and len(heading) > 0 and len(heading) < 200:
+                findings.append(Finding(
+                    code="EMPTY_SECTION",
+                    severity="medium",
+                    message=f"Section '{heading[:60]}' has no meaningful content.",
+                    recommendation="Add content to all sections or remove empty headings.",
+                ))
+                break
+
+
+def _check_exclamation_spam(text: str, findings: list[Finding]) -> None:
+    exclamation_count = text.count("!")
+    word_count = count_words(text)
+    if word_count > 20 and (exclamation_count / max(word_count, 1)) * 100 > EXCLAMATION_SPAM_THRESHOLD:
+        findings.append(Finding(
+            code="EXCLAMATION_SPAM",
+            severity="low",
+            message="Text has excessive exclamation marks.",
+            recommendation="Use exclamation marks sparingly for professional tone.",
+        ))
 
 
 def review_project_text(content: str) -> dict:
     findings: list[Finding] = []
     text = content or ""
 
-    for code, (pattern, severity) in ANTI_SLOP_PATTERNS.items():
-        matches = re.findall(pattern, text, flags=re.I)
+    all_patterns = {**ANTI_SLOP_PATTERNS, **ADDITIONAL_SLOP_PATTERNS}
+    for code, (pattern, severity) in all_patterns.items():
+        matches = re.findall(pattern, text, flags=re.I | re.M)
         if matches:
             findings.append(Finding(
                 code=code,
@@ -19,6 +56,9 @@ def review_project_text(content: str) -> dict:
                 message=f"Detected possible slop/generic content: {code}.",
                 recommendation="Replace vague or fake content with specific, accurate, product-specific copy.",
             ))
+
+    _check_empty_sections(text, findings)
+    _check_exclamation_spam(text, findings)
 
     if len(text.strip()) < MIN_TEXT_LENGTH:
         findings.append(Finding(
