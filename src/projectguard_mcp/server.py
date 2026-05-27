@@ -152,25 +152,25 @@ def review_file_plan(project_type: str, files: list[str]) -> dict[str, Any]:
 
 @mcp.tool()
 def review_project_text(content: str) -> dict[str, Any]:
-    """Detect sloppy AI text, fake content, filler, and placeholder language."""
+    """Detect AI slop, fake content, filler text, boilerplate phrases, fake metrics, stub code, placeholder brackets, empty sections, and exclamation spam."""
     return _review_project_text(content)
 
 
 @mcp.tool()
 def review_code_quality(files: dict[str, str]) -> dict[str, Any]:
-    """Run lightweight code-quality checks on proposed or generated files."""
+    """Run code-quality checks: secrets, TODOs, debug statements, hardcoded URLs, commented code, empty catches, large files, async error handling, and missing tests."""
     return _review_code_quality(files)
 
 
 @mcp.tool()
 def review_security(project_type: str, files: dict[str, str], features: list[str] | None = None) -> dict[str, Any]:
-    """Review basic security risks based on project type, feature list, and code."""
+    """Review security risks: SQL injection, XSS, SSRF, deserialization, weak crypto, hardcoded credentials, debug mode, CORS, path traversal, JWT, CSP, CSRF, rate limiting, and payment security."""
     return _review_security(project_type, files, features)
 
 
 @mcp.tool()
 def review_seo(public_pages: dict[str, str]) -> dict[str, Any]:
-    """Review SEO basics for public HTML pages."""
+    """Review SEO for public HTML pages: title/meta length, H1 hierarchy, OG/Twitter cards, viewport, lang attr, noindex traps, image alt/dimensions, JSON-LD schema, content depth, and canonical URLs."""
     return _review_seo(public_pages)
 
 
