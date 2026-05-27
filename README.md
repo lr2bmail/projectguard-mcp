@@ -1,76 +1,114 @@
 # ProjectGuard MCP
 
-ProjectGuard MCP is a small MCP server that helps AI coding agents avoid messy, generic, or unsafe projects.
+ProjectGuard MCP is a quality gate for AI coding agents.
 
-It is made for tools like:
+It helps Claude Code, Codex, and other MCP clients avoid building sloppy apps, websites, SaaS products, dashboards, APIs, and scripts.
 
-- Claude Code
-- Codex
-- other MCP-compatible coding agents
+It checks things like:
 
-ProjectGuard is **review-only**. It does not edit files, run shell commands, deploy apps, or delete anything.
-
-## What it checks
-
-ProjectGuard gives your AI agent quality checks for:
-
-- project planning
-- file structure
-- fake/placeholder content
-- code quality
-- security basics
+- weak project plans
+- bad file structure
+- fake features
+- placeholder text
+- generic AI copy
+- basic code quality
+- basic security
 - SEO basics
-- paid SaaS/payment launch readiness
+- paid SaaS launch readiness
 
-Main tools:
+ProjectGuard is **review-only**. It does not edit files, deploy apps, delete files, or run arbitrary shell commands.
 
-- `start_project_review`
-- `review_file_plan`
-- `review_project_text`
-- `review_code_quality`
-- `review_security`
-- `review_seo`
-- `review_paid_launch_readiness`
-- `final_project_score`
+---
 
 ## Install
+
+### Option 1 — uv recommended
+
+```bash
+uv tool install git+https://github.com/lr2bmail/projectguard-mcp.git
+```
+
+Check that it works:
+
+```bash
+projectguard-mcp
+```
+
+For Claude Code or Codex, you normally do not run `projectguard-mcp` manually. The AI client starts it through MCP stdio.
+
+---
+
+### Option 2 — pipx alternative
+
+```bash
+pipx install git+https://github.com/lr2bmail/projectguard-mcp.git
+```
+
+Check that it works:
+
+```bash
+projectguard-mcp
+```
+
+---
+
+### Development install
+
+Use this only if you want to edit ProjectGuard itself.
+
+Windows:
+
+```bat
+git clone https://github.com/lr2bmail/projectguard-mcp.git
+cd projectguard-mcp
+
+python -m venv .venv
+.venv\Scripts\activate
+python -m pip install -e ".[dev]"
+```
+
+Linux/macOS:
 
 ```bash
 git clone https://github.com/lr2bmail/projectguard-mcp.git
 cd projectguard-mcp
 
 python -m venv .venv
-.venv\Scripts\activate
-python -m pip install -e .
+source .venv/bin/activate
+python -m pip install -e ".[dev]"
 ```
 
-On Linux/macOS:
+Run tests:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install -e .
+pytest
 ```
 
-## Windows quick setup
+Run lint:
 
-```bat
-scripts\setup_windows.cmd
+```bash
+ruff check .
 ```
+
+---
 
 ## Add to Claude Code
 
-Recommended Windows command:
+Recommended setup:
 
-```bat
-claude mcp remove projectguard
-
-claude mcp add --transport stdio --scope user projectguard ^
-  --env PROJECTGUARD_TRANSPORT=stdio ^
-  -- D:\Downloads\projectguard-mcp\projectguard-mcp\scripts\run_projectguard.cmd
+```bash
+claude mcp add --transport stdio --scope user projectguard \
+  --env PROJECTGUARD_TRANSPORT=stdio \
+  -- projectguard-mcp
 ```
 
-Change the path if your repo is in another folder.
+Windows PowerShell:
+
+```powershell
+claude mcp add --transport stdio --scope user projectguard `
+  --env PROJECTGUARD_TRANSPORT=stdio `
+  -- projectguard-mcp
+```
 
 Check inside Claude Code:
 
@@ -78,30 +116,33 @@ Check inside Claude Code:
 /mcp
 ```
 
+You should see `projectguard`.
+
 For better behavior, copy this file into the project Claude Code will work on:
 
 ```text
 examples/claude-code/CLAUDE.md
 ```
 
+---
+
 ## Add to Codex
 
-Copy this file to your Codex config:
-
-```text
-examples/codex/config.toml
-```
-
-Usually to:
+Add this to:
 
 ```text
 ~/.codex/config.toml
 ```
 
-Then copy this into the project Codex will work on:
-
-```text
-examples/codex/AGENTS.md
+```toml
+[mcp_servers.projectguard]
+command = "projectguard-mcp"
+env = { PROJECTGUARD_TRANSPORT = "stdio" }
+enabled = true
+required = false
+default_tools_approval_mode = "auto"
+startup_timeout_sec = 20
+tool_timeout_sec = 60
 ```
 
 Check inside Codex:
@@ -110,31 +151,66 @@ Check inside Codex:
 /mcp
 ```
 
-## Recommended agent rule
-
-Use this instruction with Claude Code, Codex, or another agent:
+For better behavior, copy this file into the project Codex will work on:
 
 ```text
-Use ProjectGuard MCP before creating or editing any app, website, SaaS, dashboard, API, or script.
+examples/codex/AGENTS.md
+```
 
-Start with start_project_review.
-Create the project brief and build rules.
-Call review_file_plan before writing files.
+---
+
+## How to use
+
+Tell Claude Code or Codex:
+
+```text
+Use ProjectGuard MCP before writing files.
+
+Call start_project_review first.
+Call review_file_plan before creating files.
 After coding, call review_project_text, review_code_quality, review_security, and final_project_score.
-For public websites, call review_seo.
-For paid SaaS, payments, account balance, proxies, VPN, email API, scanners, or abuse-sensitive services, call review_paid_launch_readiness.
+For public websites, also call review_seo.
+For paid SaaS or payment/account systems, also call review_paid_launch_readiness.
 Do not mark the task complete unless final_project_score.approved is true.
 ```
 
-## Run manually
+---
 
-Stdio mode, used by Claude Code/Codex:
+## Main tools
 
-```bash
-projectguard-mcp
+ProjectGuard exposes these MCP tools:
+
+```text
+start_project_review
+classify_project_risk
+analyze_project_request
+create_project_brief
+create_build_rules
+review_file_plan
+review_project_text
+review_code_quality
+review_security
+review_seo
+review_ux_checklist
+review_paid_launch_readiness
+final_project_score
 ```
 
-HTTP mode, useful for MCP Inspector or shared/server usage:
+Most users should start with:
+
+```text
+start_project_review
+```
+
+---
+
+## Transport mode
+
+ProjectGuard uses **stdio** by default.
+
+That means you do not need to run a separate HTTP server for local Claude Code or Codex usage.
+
+Optional HTTP mode is available for MCP Inspector, Docker, or shared/server use:
 
 ```bash
 PROJECTGUARD_TRANSPORT=streamable-http projectguard-mcp
@@ -146,18 +222,67 @@ HTTP endpoint:
 http://127.0.0.1:8000/mcp
 ```
 
-## Test
+---
+
+## Test with MCP Inspector
+
+HTTP mode is easier for MCP Inspector:
 
 ```bash
-pytest
+PROJECTGUARD_TRANSPORT=streamable-http projectguard-mcp
 ```
 
-## More docs
+Then run:
 
-- `docs/CLIENT_SETUP.md`
-- `WINDOWS_SETUP.md`
-- `examples/claude-code/CLAUDE.md`
-- `examples/codex/AGENTS.md`
+```bash
+npx -y @modelcontextprotocol/inspector
+```
+
+Connect to:
+
+```text
+http://127.0.0.1:8000/mcp
+```
+
+---
+
+## Windows notes
+
+If `projectguard-mcp` is not found, use the Windows setup script from a development clone:
+
+```bat
+scripts\setup_windows.cmd
+```
+
+Then use:
+
+```bat
+scripts\run_projectguard.cmd
+```
+
+For Claude Code with local dev clone:
+
+```bat
+claude mcp add --transport stdio --scope user projectguard ^
+  --env PROJECTGUARD_TRANSPORT=stdio ^
+  -- D:\path\to\projectguard-mcp\scripts\run_projectguard.cmd
+```
+
+---
+
+## Safety
+
+ProjectGuard v1 is intentionally safe:
+
+- no file editing tools
+- no deploy tools
+- no delete tools
+- no arbitrary shell execution
+- no access to secrets unless the AI client sends content for review
+
+Future write/deploy tools should require human approval, strict allowlists, and audit logs.
+
+---
 
 ## License
 
