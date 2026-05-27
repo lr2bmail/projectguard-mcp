@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from projectguard_mcp.config import SEVERITY_WEIGHTS
+
 
 @dataclass(slots=True)
 class Finding:
@@ -43,13 +45,7 @@ class ReviewResult:
         }
 
 
-SEVERITY_WEIGHT = {
-    "info": 0,
-    "low": 4,
-    "medium": 8,
-    "high": 15,
-    "critical": 25,
-}
+SEVERITY_WEIGHT = SEVERITY_WEIGHTS
 
 
 def score_from_findings(findings: list[Finding], base: int = 100) -> int:

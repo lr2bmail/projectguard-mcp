@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from projectguard_mcp.config import APPROVAL_THRESHOLDS
 from projectguard_mcp.models import Finding, ReviewResult, approval_from_score, score_from_findings
 from projectguard_mcp.utils import safe_path_parts
 
@@ -50,9 +51,9 @@ def review_file_plan(project_type: str, files: list[str]) -> dict:
 
     score = score_from_findings(findings)
     return ReviewResult(
-        approved=approval_from_score(score, 82),
+        approved=approval_from_score(score, APPROVAL_THRESHOLDS["file_plan"]),
         score=score,
         findings=findings,
-        summary="File plan is acceptable." if score >= 82 else "File plan should be improved before implementation.",
+        summary="File plan is acceptable." if score >= APPROVAL_THRESHOLDS["file_plan"] else "File plan should be improved before implementation.",
         metadata={"file_count": len(files)},
     ).to_dict()

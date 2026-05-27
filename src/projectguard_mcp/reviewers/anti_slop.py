@@ -2,32 +2,25 @@ from __future__ import annotations
 
 import re
 
+from projectguard_mcp.config import ANTI_SLOP_PATTERNS, MIN_TEXT_LENGTH
 from projectguard_mcp.models import Finding, ReviewResult, approval_from_score, score_from_findings
-
-SLOP_PATTERNS = {
-    "LOREM_IPSUM": r"lorem ipsum|dolor sit amet",
-    "PLACEHOLDER_TEXT": r"placeholder|coming soon|under construction|todo\b|fixme\b|dummy data",
-    "FAKE_SOCIAL_PROOF": r"trusted by thousands|millions of users|world.?class|industry.?leading|#1\b",
-    "GENERIC_AI_COPY": r"unlock your potential|seamless experience|revolutionize|transform your workflow|cutting-edge solution",
-    "FAKE_INTEGRATION": r"integrates with (stripe|paypal|openai|slack|github|google)" ,
-}
 
 
 def review_project_text(content: str) -> dict:
     findings: list[Finding] = []
     text = content or ""
 
-    for code, pattern in SLOP_PATTERNS.items():
+    for code, (pattern, severity) in ANTI_SLOP_PATTERNS.items():
         matches = re.findall(pattern, text, flags=re.I)
         if matches:
             findings.append(Finding(
                 code=code,
-                severity="medium" if code != "FAKE_INTEGRATION" else "high",
+                severity=severity,
                 message=f"Detected possible slop/generic content: {code}.",
                 recommendation="Replace vague or fake content with specific, accurate, product-specific copy.",
             ))
 
-    if len(text.strip()) < 80:
+    if len(text.strip()) < MIN_TEXT_LENGTH:
         findings.append(Finding(
             code="TEXT_TOO_SHORT",
             severity="low",

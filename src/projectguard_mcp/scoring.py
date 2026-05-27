@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+from projectguard_mcp.config import (
+    APPROVAL_THRESHOLDS,
+    BLOCKING_THRESHOLDS,
+    SCORING_WEIGHTS_WITH_PAID,
+    SCORING_WEIGHTS_WITHOUT_PAID,
+)
+
 
 def clamp_score(value: int | float) -> int:
     return max(0, min(100, int(round(value))))
@@ -12,19 +19,10 @@ def final_project_score(
     seo_score: int = 100,
     paid_launch_score: int | None = None,
 ) -> dict:
-    weights = {
-        "code": 0.30,
-        "ux": 0.25,
-        "security": 0.25,
-        "seo": 0.10,
-        "paid_launch": 0.10 if paid_launch_score is not None else 0.0,
-    }
-
     if paid_launch_score is None:
-        weights["code"] = 0.35
-        weights["ux"] = 0.30
-        weights["security"] = 0.25
-        weights["seo"] = 0.10
+        weights = dict(SCORING_WEIGHTS_WITHOUT_PAID)
+    else:
+        weights = dict(SCORING_WEIGHTS_WITH_PAID)
 
     raw = (
         code_score * weights["code"]
@@ -37,17 +35,17 @@ def final_project_score(
 
     overall = clamp_score(raw)
     blocking = []
-    if code_score < 75:
+    if code_score < BLOCKING_THRESHOLDS["code_score"]:
         blocking.append("code_score_below_minimum")
-    if security_score < 80:
+    if security_score < BLOCKING_THRESHOLDS["security_score"]:
         blocking.append("security_score_below_minimum")
-    if paid_launch_score is not None and paid_launch_score < 70:
+    if paid_launch_score is not None and paid_launch_score < BLOCKING_THRESHOLDS["paid_launch_score"]:
         blocking.append("paid_launch_score_below_beta_minimum")
 
     return {
         "overall_score": overall,
-        "approved": overall >= 85 and not blocking,
-        "minimum_required_score": 85,
+        "approved": overall >= APPROVAL_THRESHOLDS["final_overall"] and not blocking,
+        "minimum_required_score": APPROVAL_THRESHOLDS["final_overall"],
         "blocking_issues": blocking,
         "scores": {
             "code": clamp_score(code_score),

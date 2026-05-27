@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+from projectguard_mcp.config import SQL_INJECTION_PATTERN
 from projectguard_mcp.models import Finding, ReviewResult, approval_from_score, score_from_findings
 
 
@@ -37,7 +38,7 @@ def review_security(project_type: str, files: dict[str, str], features: list[str
             ))
 
     for path, content in files.items():
-        if re.search(r"SELECT\s+.+\s+FROM\s+.+\+", content, flags=re.I):
+        if re.search(SQL_INJECTION_PATTERN, content, flags=re.I):
             findings.append(Finding(
                 code="POSSIBLE_SQL_INJECTION",
                 severity="critical",

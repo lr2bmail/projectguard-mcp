@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from projectguard_mcp.config import MIN_WORD_COUNT
 from projectguard_mcp.models import Finding, ReviewResult, approval_from_score, score_from_findings
 from projectguard_mcp.utils import contains_any, count_words
 
@@ -9,7 +10,7 @@ def analyze_project_request(project_type: str, user_request: str) -> dict:
     word_count = count_words(user_request)
     lowered = user_request.lower()
 
-    if word_count < 25:
+    if word_count < MIN_WORD_COUNT:
         findings.append(Finding(
             code="REQUEST_TOO_SHORT",
             severity="medium",

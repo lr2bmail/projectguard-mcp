@@ -2,15 +2,9 @@ from __future__ import annotations
 
 import re
 
+from projectguard_mcp.config import MIN_FILES_FOR_TEST_CHECK, SECRET_PATTERNS
 from projectguard_mcp.models import Finding, ReviewResult, approval_from_score, score_from_findings
 from projectguard_mcp.utils import file_ext
-
-SECRET_PATTERNS = [
-    r"sk_live_[A-Za-z0-9_\-]+",
-    r"xox[baprs]-[A-Za-z0-9\-]+",
-    r"AKIA[0-9A-Z]{16}",
-    r"(?i)(api[_-]?key|secret|password|token)\s*=\s*['\"][^'\"]{8,}['\"]",
-]
 
 
 def review_code_quality(files: dict[str, str]) -> dict:
@@ -72,7 +66,7 @@ def review_code_quality(files: dict[str, str]) -> dict:
                 ))
 
     has_tests = any("test" in path.lower() for path in files)
-    if not has_tests and len(files) >= 3:
+    if not has_tests and len(files) >= MIN_FILES_FOR_TEST_CHECK:
         findings.append(Finding(
             code="NO_TEST_FILES",
             severity="medium",

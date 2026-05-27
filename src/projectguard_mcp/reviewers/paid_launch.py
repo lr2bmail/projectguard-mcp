@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from projectguard_mcp.config import APPROVAL_THRESHOLDS
 from projectguard_mcp.models import Finding, ReviewResult, approval_from_score, score_from_findings
 
 REQUIRED_LEGAL_PAGES = {
@@ -117,8 +118,8 @@ def review_paid_launch_readiness(
         ))
 
     score = score_from_findings(findings)
-    approved_beta = score >= 70
-    approved_public = approval_from_score(score, 88)
+    approved_beta = score >= APPROVAL_THRESHOLDS["paid_launch_beta"]
+    approved_public = approval_from_score(score, APPROVAL_THRESHOLDS["paid_launch_public"])
 
     return ReviewResult(
         approved=approved_public,
