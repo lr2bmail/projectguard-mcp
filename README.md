@@ -12,7 +12,8 @@ It checks things like:
 - placeholder text
 - generic AI copy
 - basic code quality
-- basic security
+- baseline security
+- focused API/payment/Docker security
 - SEO basics
 - paid SaaS launch readiness
 
@@ -168,7 +169,9 @@ Use ProjectGuard MCP before writing files.
 
 Call start_project_review first.
 Call review_file_plan before creating files.
+Call recommend_security_reviews before final review.
 After coding, call review_project_text, review_code_quality, review_security, and final_project_score.
+Run the focused security reviews recommended by recommend_security_reviews.
 For public websites, also call review_seo.
 For paid SaaS or payment/account systems, also call review_paid_launch_readiness.
 Do not mark the task complete unless final_project_score.approved is true.
@@ -190,6 +193,10 @@ review_file_plan
 review_project_text
 review_code_quality
 review_security
+recommend_security_reviews
+review_api_security
+review_payment_webhook_security
+review_docker_security
 review_seo
 review_ux_checklist
 review_paid_launch_readiness
@@ -201,6 +208,35 @@ Most users should start with:
 ```text
 start_project_review
 ```
+
+For security-focused projects, use:
+
+```text
+recommend_security_reviews
+```
+
+It will tell the agent whether to also run:
+
+```text
+review_api_security
+review_payment_webhook_security
+review_docker_security
+```
+
+---
+
+## SecuritySkillsGuard
+
+SecuritySkillsGuard is the focused defensive security layer inside ProjectGuard.
+
+It adds:
+
+- `recommend_security_reviews` — chooses the right security reviews based on project type, files, and features
+- `review_api_security` — checks API auth, object authorization, admin role checks, GraphQL limits, and rate limits
+- `review_payment_webhook_security` — checks webhook signatures, idempotency, amount/currency checks, balance ledger, and refund/dispute handling
+- `review_docker_security` — checks Dockerfile/Compose hardening, root containers, privileged mode, Docker socket mounts, host network, secrets in env, and `.dockerignore`
+
+This is defensive only. It does not run scans, exploits, payloads, or offensive workflows.
 
 ---
 
