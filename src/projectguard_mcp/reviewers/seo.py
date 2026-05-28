@@ -336,6 +336,39 @@ def review_seo(public_pages: dict[str, str]) -> dict:
             metadata={"page_count": 0},
         ).to_dict()
 
+    # Detect non-HTML input (description strings, URLs, etc.)
+    non_html_pages: list[str] = []
+    for path, html in public_pages.items():
+        stripped = html.strip()
+        if stripped and not stripped.startswith("<") and "<html" not in stripped.lower() and "<head" not in stripped.lower():
+            non_html_pages.append(path)
+
+    if non_html_pages:
+        findings.append(Finding(
+            "INPUT_NOT_HTML",
+            severity="critical",
+            message=(
+                f"SEO review requires full rendered HTML, but {len(non_html_pages)} page(s) do not appear to be HTML: "
+                f"{', '.join(non_html_pages[:5])}. "
+                "Pass the complete HTML source of each page (including <head>, <body>, meta tags, etc.), "
+                "not descriptions, URLs, or plain text."
+            ),
+            recommendation=(
+                "Provide the actual rendered HTML of each page. "
+                "In Flask/Django, use render_template_string() or fetch the page source from a running server. "
+                "In Next.js, view page source in the browser. "
+                "Each value must start with <html> or <!DOCTYPE html>."
+            ),
+        ))
+        score = score_from_findings(findings)
+        return ReviewResult(
+            approved=False,
+            score=score,
+            findings=findings,
+            summary="SEO review received non-HTML input. Pass full rendered HTML for accurate results.",
+            metadata={"page_count": len(public_pages), "non_html_count": len(non_html_pages)},
+        ).to_dict()
+
     for path, html in public_pages.items():
         _check_page_seo(path, html, findings)
 

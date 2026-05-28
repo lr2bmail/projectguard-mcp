@@ -223,7 +223,7 @@ def review_docker_security(files: dict[str, str] | None = None) -> dict[str, Any
 
 @mcp.tool()
 def review_seo(public_pages: dict[str, str]) -> dict[str, Any]:
-    """Review SEO for public HTML pages."""
+    """Review SEO for public HTML pages. Provide FULL rendered HTML source for each page (starting with <html> or <!DOCTYPE html>). Do NOT pass descriptions, URLs, or plain text."""
     return _review_seo(public_pages)
 
 

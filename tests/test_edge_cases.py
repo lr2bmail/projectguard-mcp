@@ -357,3 +357,36 @@ def test_anti_slop_legitimate_privacy_policy_not_flagged():
     result = review_project_text(text)
     codes = {f["code"] for f in result["findings"]}
     assert "CONTRADICTORY_PRIVACY_CLAIMS" not in codes
+
+
+def test_seo_non_html_input_rejected():
+    """SEO review should reject plain text / description strings."""
+    pages = {
+        "index.html": "A fast proxy tool for checking SEO rankings",
+        "about.html": "About our service - we provide SEO analysis tools",
+    }
+    result = review_seo(pages)
+    assert result["approved"] is False
+    codes = {f["code"] for f in result["findings"]}
+    assert "INPUT_NOT_HTML" in codes
+    assert result["metadata"]["non_html_count"] == 2
+
+
+def test_seo_actual_html_not_rejected():
+    """SEO review should accept actual HTML."""
+    pages = {
+        "index.html": "<html><head><title>Test</title></head><body><h1>Hello</h1><p>" + "word " * 100 + "</p></body></html>",
+    }
+    result = review_seo(pages)
+    codes = {f["code"] for f in result["findings"]}
+    assert "INPUT_NOT_HTML" not in codes
+
+
+def test_seo_doctype_html_not_rejected():
+    """SEO review should accept HTML starting with <!DOCTYPE html>."""
+    pages = {
+        "index.html": "<!DOCTYPE html><html><head><title>Test</title></head><body><h1>Hello</h1></body></html>",
+    }
+    result = review_seo(pages)
+    codes = {f["code"] for f in result["findings"]}
+    assert "INPUT_NOT_HTML" not in codes
