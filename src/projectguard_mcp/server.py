@@ -6,15 +6,17 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from projectguard_mcp.reviewers.anti_slop import review_project_text as _review_project_text
+from projectguard_mcp.reviewers.api_security import review_api_security as _review_api_security
 from projectguard_mcp.reviewers.classifier import classify_project_risk as _classify_project_risk
 from projectguard_mcp.reviewers.code_quality import review_code_quality as _review_code_quality
+from projectguard_mcp.reviewers.docker_security import review_docker_security as _review_docker_security
 from projectguard_mcp.reviewers.file_plan import review_file_plan as _review_file_plan
 from projectguard_mcp.reviewers.paid_launch import review_paid_launch_readiness as _review_paid_launch_readiness
-from projectguard_mcp.reviewers.project_request import (
-    analyze_project_request as _analyze_project_request,
-)
+from projectguard_mcp.reviewers.payment_webhooks import review_payment_webhook_security as _review_payment_webhook_security
+from projectguard_mcp.reviewers.project_request import analyze_project_request as _analyze_project_request
 from projectguard_mcp.reviewers.project_request import create_project_brief as _create_project_brief
 from projectguard_mcp.reviewers.security import review_security as _review_security
+from projectguard_mcp.reviewers.security_recommender import recommend_security_reviews as _recommend_security_reviews
 from projectguard_mcp.reviewers.seo import review_seo as _review_seo
 from projectguard_mcp.reviewers.ux import review_ux_checklist as _review_ux_checklist
 from projectguard_mcp.rules import rules_for_project
@@ -32,12 +34,14 @@ Required workflow:
 2. create_project_brief
 3. create_build_rules
 4. review_file_plan before writing files
-5. implementation
-6. review_project_text, review_code_quality, review_security
-7. review_seo for public websites
-8. review_paid_launch_readiness for paid, payment, account-balance, proxy, VPN,
-   email API, scanner, or other abuse-sensitive services
-9. final_project_score
+5. recommend_security_reviews
+6. implementation
+7. review_project_text, review_code_quality, review_security
+8. run focused security reviews recommended by recommend_security_reviews
+9. review_seo for public websites
+10. review_paid_launch_readiness for paid, payment, account-balance, proxy, VPN,
+    email API, scanner, or other abuse-sensitive services
+11. final_project_score
 
 Do not mark a project complete when final_project_score.approved is false. Never create
 fake features, fake integrations, fake testimonials, placeholder buttons, or filler text
@@ -49,10 +53,12 @@ REQUIRED_WORKFLOW = [
     "create_project_brief",
     "create_build_rules",
     "review_file_plan",
+    "recommend_security_reviews",
     "implementation",
     "review_project_text",
     "review_code_quality",
     "review_security",
+    "recommended_focused_security_reviews",
     "review_seo_if_public_website",
     "review_paid_launch_readiness_if_paid_or_abuse_sensitive",
     "final_project_score",
@@ -64,6 +70,7 @@ HARD_RULES = [
     "Do not create fake features, fake integrations, fake testimonials, or filler text.",
     "Do not rewrite unrelated files or ignore the existing project structure.",
     "For paid or abuse-sensitive services, run paid launch readiness before final approval.",
+    "Run recommend_security_reviews before final review and execute its blocking reviews.",
 ]
 
 mcp = FastMCP(
@@ -87,9 +94,15 @@ def start_project_review(
     """
     risk = _classify_project_risk(project_type, user_request, features)
     analysis = _analyze_project_request(project_type, user_request)
-    required_reviews = ["review_file_plan", "review_project_text", "review_code_quality", "review_security"]
+    required_reviews = [
+        "review_file_plan",
+        "recommend_security_reviews",
+        "review_project_text",
+        "review_code_quality",
+        "review_security",
+    ]
 
-    if any(word in project_type.lower() for word in ["website", "seo", "landing", "tools"]):
+    if any(word in (project_type or "").lower() for word in ["website", "seo", "landing", "tools"]):
         required_reviews.append("review_seo")
     if risk.get("requires_paid_launch_review") or risk.get("requires_aup_review"):
         required_reviews.append("review_paid_launch_readiness")
@@ -152,25 +165,61 @@ def review_file_plan(project_type: str, files: list[str]) -> dict[str, Any]:
 
 @mcp.tool()
 def review_project_text(content: str) -> dict[str, Any]:
-    """Detect AI slop, fake content, filler text, boilerplate phrases, fake metrics, stub code, placeholder brackets, empty sections, and exclamation spam."""
+    """Detect AI slop, fake content, filler text, boilerplate phrases, fake metrics, and placeholders."""
     return _review_project_text(content)
 
 
 @mcp.tool()
 def review_code_quality(files: dict[str, str]) -> dict[str, Any]:
-    """Run code-quality checks: secrets, TODOs, debug statements, hardcoded URLs, commented code, empty catches, large files, async error handling, and missing tests."""
+    """Run code-quality checks: secrets, TODOs, debug statements, risky commands, large files, and tests."""
     return _review_code_quality(files)
 
 
 @mcp.tool()
 def review_security(project_type: str, files: dict[str, str], features: list[str] | None = None) -> dict[str, Any]:
-    """Review security risks: SQL injection, XSS, SSRF, deserialization, weak crypto, hardcoded credentials, debug mode, CORS, path traversal, JWT, CSP, CSRF, rate limiting, and payment security."""
+    """Run baseline security checks for web/API/SaaS code."""
     return _review_security(project_type, files, features)
 
 
 @mcp.tool()
+def recommend_security_reviews(
+    project_type: str,
+    files: dict[str, str] | None = None,
+    features: list[str] | None = None,
+) -> dict[str, Any]:
+    """Recommend focused defensive security reviews based on project type, files, and features."""
+    return _recommend_security_reviews(project_type, files, features)
+
+
+@mcp.tool()
+def review_api_security(
+    project_type: str,
+    files: dict[str, str] | None = None,
+    features: list[str] | None = None,
+) -> dict[str, Any]:
+    """Review API authorization, BOLA/IDOR, admin route, GraphQL, and API rate-limit risks."""
+    return _review_api_security(project_type, files, features)
+
+
+@mcp.tool()
+def review_payment_webhook_security(
+    project_type: str,
+    files: dict[str, str] | None = None,
+    features: list[str] | None = None,
+) -> dict[str, Any]:
+    """Review payment webhook signature, idempotency, amount checks, balance ledger, and refund/dispute handling."""
+    return _review_payment_webhook_security(project_type, files, features)
+
+
+@mcp.tool()
+def review_docker_security(files: dict[str, str] | None = None) -> dict[str, Any]:
+    """Review Dockerfile and Compose hardening issues."""
+    return _review_docker_security(files)
+
+
+@mcp.tool()
 def review_seo(public_pages: dict[str, str]) -> dict[str, Any]:
-    """Review SEO for public HTML pages: title/meta length, H1 hierarchy, OG/Twitter cards, viewport, lang attr, noindex traps, image alt/dimensions, JSON-LD schema, content depth, and canonical URLs."""
+    """Review SEO for public HTML pages."""
     return _review_seo(public_pages)
 
 
@@ -250,9 +299,11 @@ Before coding:
 - Call start_project_review.
 - Call create_project_brief and create_build_rules.
 - Call review_file_plan and wait for approval before writing files.
+- Call recommend_security_reviews to know which focused security reviews are required.
 
 After coding:
 - Call review_project_text, review_code_quality, review_security, and final_project_score.
+- Run recommended focused reviews such as review_api_security, review_payment_webhook_security, and review_docker_security.
 - Call review_seo for public websites.
 - Call review_paid_launch_readiness for paid/payment/account-balance/abuse-sensitive projects.
 
@@ -270,14 +321,15 @@ Before coding:
 - Call start_project_review.
 - Call create_project_brief and create_build_rules.
 - Call review_file_plan and wait for approval before writing files.
+- Call recommend_security_reviews to know which focused security reviews are required.
 
 After coding:
 - Call review_project_text, review_code_quality, review_security, and final_project_score.
+- Run recommended focused reviews such as review_api_security, review_payment_webhook_security, and review_docker_security.
 - Call review_seo for public websites.
 - Call review_paid_launch_readiness for paid/payment/account-balance/abuse-sensitive projects.
 
-Put these rules in AGENTS.md for persistent project behavior. Configure MCP in ~/.codex/config.toml
-or project-scoped .codex/config.toml for trusted projects.
+Put these rules in AGENTS.md for persistent project behavior.
 """.strip()
 
 
@@ -305,28 +357,64 @@ def paid_launch_rules_resource() -> str:
     return "\n".join(rules_for_project("paid saas", ["paid", "payment", "account_balance", "abuse_sensitive"]))
 
 
+@mcp.resource("projectguard://security/rules/api")
+def api_security_rules_resource() -> str:
+    """Defensive API security review rules."""
+    return """
+API Security Review
+- Require authentication on private API, dashboard, admin, and mutating routes.
+- Check object ownership/tenant/account filtering for resource IDs.
+- Require explicit role/permission checks on admin routes.
+- Add rate limits to login, public API, webhook, and abuse-sensitive endpoints.
+- Add GraphQL depth/complexity/cost limits when GraphQL is used.
+Frameworks: OWASP API Top 10, OWASP A01 Broken Access Control.
+""".strip()
+
+
+@mcp.resource("projectguard://security/rules/payment-webhooks")
+def payment_webhook_rules_resource() -> str:
+    """Defensive payment webhook review rules."""
+    return """
+Payment Webhook Security Review
+- Do not trust success redirects as payment proof.
+- Verify webhook signatures before updating orders, invoices, or balances.
+- Store provider event IDs and ignore duplicate events.
+- Re-check amount, currency, user/order/invoice IDs server-side.
+- Update account balance only after verified webhook and idempotency checks.
+- Store refund, dispute, chargeback, and admin reason history.
+""".strip()
+
+
+@mcp.resource("projectguard://security/rules/docker")
+def docker_security_rules_resource() -> str:
+    """Defensive Docker hardening review rules."""
+    return """
+Docker Security Review
+- Pin base images; avoid latest tags.
+- Run as a non-root user.
+- Add HEALTHCHECK where practical.
+- Do not use privileged mode, host network, host PID, or Docker socket mounts.
+- Avoid dangerous capabilities such as SYS_ADMIN, SYS_PTRACE, NET_ADMIN, SYS_MODULE.
+- Do not store secrets in Dockerfile ENV or committed Compose environment blocks.
+- Add .dockerignore.
+Frameworks: CIS Docker Benchmark, container hardening.
+""".strip()
+
+
 @mcp.resource("projectguard://checks/security")
 def security_checks_resource() -> str:
-    """List of all security checks performed by review_security."""
+    """List of baseline and focused security checks."""
     return """
-SQL injection (string concatenation in queries)
-XSS via innerHTML without sanitization
-SSRF via user-controlled URLs in HTTP clients
-Insecure deserialization (pickle, yaml, eval, exec)
-Framework XSS (dangerouslySetInnerHTML, v-html, |safe, html_safe, document.write)
-Weak crypto (md5, sha1, insecure random for tokens)
-Hardcoded credentials in source code
-Debug mode enabled (Flask/Django DEBUG=True)
-CORS wildcard origin (allow_origins=*)
-Path traversal (../ patterns in file paths)
-Insecure session config (SESSION_COOKIE_SECURE=False)
-JWT with algorithm=none
-Missing Content-Security-Policy header
-Missing CSRF protection for auth projects
-Missing rate limiting for auth/API flows
-Missing file upload validation
-Missing payment webhook handling
-Missing payment idempotency
+Baseline review_security checks:
+- SQL injection, XSS, SSRF, unsafe deserialization, weak crypto, hardcoded credentials.
+- Debug mode, wildcard CORS, path traversal, insecure sessions, JWT none, missing CSP.
+- CSRF/rate-limit/upload/payment webhook/idempotency visibility checks.
+
+Focused SecuritySkillsGuard checks:
+- recommend_security_reviews chooses focused reviews.
+- review_api_security checks auth, IDOR/BOLA, admin roles, GraphQL limits, rate limits.
+- review_payment_webhook_security checks signatures, idempotency, amount checks, balance ledger.
+- review_docker_security checks Dockerfile/Compose hardening.
 """.strip()
 
 
@@ -415,14 +503,16 @@ Before coding:
 2. Call create_project_brief.
 3. Call create_build_rules.
 4. Call review_file_plan and do not create files until the plan passes.
+5. Call recommend_security_reviews.
 
 After coding:
 1. Call review_project_text for public copy/README/final answer.
 2. Call review_code_quality.
 3. Call review_security.
-4. Call review_seo for public websites.
-5. Call review_paid_launch_readiness for paid SaaS/digital services.
-6. Call final_project_score.
+4. Run recommended focused security reviews.
+5. Call review_seo for public websites.
+6. Call review_paid_launch_readiness for paid SaaS/digital services.
+7. Call final_project_score.
 
 Never mark the project complete if final_project_score.approved is false.
 """.strip()
@@ -442,9 +532,10 @@ Before marking the {project_type} task complete, call ProjectGuard final review 
 1. review_project_text
 2. review_code_quality
 3. review_security
-4. review_seo if this is a public website
-5. review_paid_launch_readiness if this is paid, account-based, payment-based, or abuse-sensitive
-6. final_project_score
+4. recommended focused security reviews from recommend_security_reviews
+5. review_seo if this is a public website
+6. review_paid_launch_readiness if this is paid, account-based, payment-based, or abuse-sensitive
+7. final_project_score
 
 Do not say the task is complete unless final_project_score.approved is true.
 """.strip()
@@ -466,10 +557,11 @@ Follow this gate:
 1. Call start_project_review before planning code changes.
 2. Call create_project_brief and create_build_rules.
 3. Call review_file_plan and do not edit files until it passes.
-4. Implement only the approved scope.
-5. Run review_project_text, review_code_quality, review_security, and final_project_score.
-6. Add review_seo for public websites.
-7. Add review_paid_launch_readiness for paid/payment/account-balance/abuse-sensitive projects.
+4. Call recommend_security_reviews and run required blocking reviews.
+5. Implement only the approved scope.
+6. Run review_project_text, review_code_quality, review_security, and final_project_score.
+7. Add review_seo for public websites.
+8. Add review_paid_launch_readiness for paid/payment/account-balance/abuse-sensitive projects.
 
 Never mark complete if final_project_score.approved is false.
 """.strip()
