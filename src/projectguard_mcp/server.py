@@ -20,6 +20,7 @@ from projectguard_mcp.reviewers.project_request import create_project_brief as _
 from projectguard_mcp.reviewers.security import review_security as _review_security
 from projectguard_mcp.reviewers.security_recommender import recommend_security_reviews as _recommend_security_reviews
 from projectguard_mcp.reviewers.seo import review_seo as _review_seo
+from projectguard_mcp.reviewers.session_gaps import analyze_session_gaps as _analyze_session_gaps
 from projectguard_mcp.reviewers.ux import review_ux_checklist as _review_ux_checklist
 from projectguard_mcp.rules import rules_for_project
 from projectguard_mcp.scoring import final_project_score as _final_project_score
@@ -44,6 +45,7 @@ Required workflow:
 10. review_paid_launch_readiness for paid, payment, account-balance, proxy, VPN,
     email API, scanner, or other abuse-sensitive services
 11. final_project_score
+12. analyze_session_gaps (optional) — discover what the MCP missed for future improvement
 
 Do not mark a project complete when final_project_score.approved is false. Never create
 fake features, fake integrations, fake testimonials, placeholder buttons, or filler text
@@ -283,6 +285,20 @@ def final_project_score(
 ) -> dict[str, Any]:
     """Calculate final approval score after individual reviews have run."""
     return _final_project_score(code_score, ux_score, security_score, seo_score, paid_launch_score)
+
+
+@mcp.tool()
+def analyze_session_gaps(
+    session_summary: str,
+    project_type: str,
+    files: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Compare what was done in a coding session against existing MCP checks to find coverage gaps.
+
+    Run after final_project_score to discover what the MCP would NOT have caught.
+    Each gap is a candidate for a future check, making the MCP self-improving.
+    """
+    return _analyze_session_gaps(session_summary, project_type, files)
 
 
 @mcp.resource("projectguard://workflow/agent")
