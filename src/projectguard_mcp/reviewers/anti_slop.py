@@ -44,6 +44,28 @@ def _check_exclamation_spam(text: str, findings: list[Finding]) -> None:
         ))
 
 
+_PRIVACY_CLAIM_WORDS = ["private", "privacy", "anonymous", "no tracking", "we don't track", "we do not track", "no data collection"]
+_TRACKING_WORDS = ["analytics", "google analytics", "gtag", "facebook pixel", "track", "tracking", "telemetry", "mixpanel", "amplitude", "hotjar", "segment", "datadog"]
+
+
+def _check_contradictory_privacy_claims(text: str, findings: list[Finding]) -> None:
+    lowered = text.lower()
+    has_privacy_claim = any(word in lowered for word in _PRIVACY_CLAIM_WORDS)
+    has_tracking = any(word in lowered for word in _TRACKING_WORDS)
+    if has_privacy_claim and has_tracking:
+        # If text contains a formal privacy policy section, assume tracking is legitimately disclosed
+        has_formal_policy = bool(re.search(r'(?:privacy policy|data collection policy|cookie policy|tracking disclosure)', lowered))
+        if has_formal_policy:
+            return
+        findings.append(Finding(
+            code="CONTRADICTORY_PRIVACY_CLAIMS",
+            severity="high",
+            message="Text claims privacy/no-tracking but also mentions analytics/tracking tools.",
+            recommendation="Either remove the privacy/no-tracking claims or remove tracking tools. "
+                           "If using analytics, clearly disclose it in a formal privacy policy.",
+        ))
+
+
 def review_project_text(content: str) -> dict:
     findings: list[Finding] = []
     text = content or ""
@@ -61,6 +83,7 @@ def review_project_text(content: str) -> dict:
 
     _check_empty_sections(text, findings)
     _check_exclamation_spam(text, findings)
+    _check_contradictory_privacy_claims(text, findings)
 
     if len(text.strip()) < MIN_TEXT_LENGTH:
         findings.append(Finding(

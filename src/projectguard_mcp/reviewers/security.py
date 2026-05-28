@@ -118,6 +118,18 @@ def _check_file_security(path: str, content: str, ext: str, findings: list[Findi
             recommendation="Validate and allowlist URLs before fetching. Never pass user input directly to HTTP clients.",
             path=path,
         ))
+        # Check if SSRF protection is present
+        ssrf_protection_words = ["allowlist", "allow_list", "whitelist", "blocklist", "block_list",
+                                 "url_validation", "validate_url", "allowed_hosts", "safe_url",
+                                 "internal_only", "private_ip", "deny_private"]
+        if not any(word in lowered for word in ssrf_protection_words):
+            findings.append(Finding(
+                code="SSRF_PROTECTION_MISSING",
+                severity="high",
+                message="URL fetch with user input but no visible SSRF protection.",
+                recommendation="Add URL allowlisting, block private IP ranges, and validate domains before fetching.",
+                path=path,
+            ))
 
     # -- Insecure deserialization --
     for pattern, label, severity in _DESERIALIZATION_PATTERNS:

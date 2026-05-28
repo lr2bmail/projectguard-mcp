@@ -197,6 +197,131 @@ def _check_page_seo(path: str, html: str, findings: list[Finding]) -> None:
         ))
 
 
+def _check_site_wide_seo(pages: dict[str, str], findings: list[Finding]) -> None:
+    """Checks that require multiple pages (sitemap, robots.txt, internal linking, etc.)."""
+    all_paths = {p.lower().replace("\\", "/") for p in pages}
+    all_html_lower = "\n".join(pages.values()).lower()
+
+    # -- MISSING_SITEMAP_XML --
+    has_sitemap = any("sitemap" in p for p in all_paths) or "</urlset>" in all_html_lower
+    if not has_sitemap and len(pages) >= 2:
+        findings.append(Finding(
+            "MISSING_SITEMAP_XML", "high",
+            "No sitemap.xml detected among the provided pages.",
+            recommendation="Add a sitemap.xml listing all public URLs and submit it to Google Search Console.",
+        ))
+
+    # -- MISSING_ROBOTS_TXT --
+    has_robots = any(p.endswith("robots.txt") for p in all_paths) or "user-agent:" in all_html_lower
+    if not has_robots and len(pages) >= 2:
+        findings.append(Finding(
+            "MISSING_ROBOTS_TXT", "high",
+            "No robots.txt detected among the provided pages.",
+            recommendation="Add a robots.txt file that allows search engine crawling and points to the sitemap.",
+        ))
+
+    # -- COMPRESSION_NOT_ENABLED --
+    # Check for server config files or HTML hints of compression
+    compression_hints = [
+        "content-encoding", "gzip", "deflate", "brotli", "br",
+        "compress=true", "compression", "enable_gzip",
+    ]
+    if not any(hint in all_html_lower for hint in compression_hints) and len(pages) >= 2:
+        findings.append(Finding(
+            "COMPRESSION_NOT_ENABLED", "medium",
+            "No visible compression headers or configuration detected.",
+            recommendation="Enable gzip/brotli compression on the server for HTML, CSS, and JS files.",
+        ))
+
+    # -- STATIC_CACHE_HEADERS_MISSING --
+    cache_hints = [
+        "cache-control", "max-age", "etag", "expires", "stale-while-revalidate",
+        "s-maxage", "immutable",
+    ]
+    has_cache_headers = any(hint in all_html_lower for hint in cache_hints)
+    if not has_cache_headers and len(pages) >= 2:
+        findings.append(Finding(
+            "STATIC_CACHE_HEADERS_MISSING", "medium",
+            "No visible cache headers for static assets.",
+            recommendation="Set Cache-Control headers with max-age for CSS, JS, images, and fonts.",
+        ))
+
+    # -- CANONICAL_MISMATCH --
+    # Check that canonical URLs match the actual page URL/path
+    canonical_map: dict[str, str] = {}
+    for path, html in pages.items():
+        h = html.lower()
+        canonical_href = re.search(
+            r'<link[^>]+rel\s*=\s*["\']canonical["\'][^>]+href\s*=\s*["\']([^"\']*)["\']', h,
+        )
+        if canonical_href:
+            canonical_map[path] = canonical_href.group(1)
+
+    if len(canonical_map) >= 2:
+        seen_targets: dict[str, list[str]] = {}
+        for path, canonical in canonical_map.items():
+            # Strip trailing slash for comparison
+            normalized = canonical.rstrip("/")
+            seen_targets.setdefault(normalized, []).append(path)
+        for target, sources in seen_targets.items():
+            if len(sources) > 1:
+                findings.append(Finding(
+                    "CANONICAL_MISMATCH", "high",
+                    f"Multiple pages point to the same canonical URL: {target} (from {', '.join(sources)}).",
+                    recommendation="Each page should have a unique canonical URL pointing to itself.",
+                ))
+                break
+
+    # -- GENERIC_OG_IMAGE --
+    og_images: list[str] = []
+    for html in pages.values():
+        h = html.lower()
+        og_img = re.search(r'property\s*=\s*["\']og:image["\'][^>]+content\s*=\s*["\']([^"\']*)["\']', h)
+        if not og_img:
+            og_img = re.search(r'content\s*=\s*["\']([^"\']*)["\'][^>]+property\s*=\s*["\']og:image["\']', h)
+        if og_img:
+            og_images.append(og_img.group(1))
+    if len(og_images) >= 3:
+        unique_images = set(og_images)
+        if len(unique_images) == 1:
+            findings.append(Finding(
+                "GENERIC_OG_IMAGE", "medium",
+                "All pages share the same og:image, reducing social sharing click-through.",
+                recommendation="Use unique og:image for each page reflecting its specific content.",
+            ))
+
+    # -- INTERNAL_LINKING_WEAK --
+    for path, html in pages.items():
+        h = html.lower()
+        internal_links = re.findall(r'href\s*=\s*["\'](/[^"\']*)["\']', h)
+        if len(pages) >= 3 and len(internal_links) < 2:
+            findings.append(Finding(
+                "INTERNAL_LINKING_WEAK", "medium",
+                f"Page has only {len(internal_links)} internal links (recommend 3+ for sites with multiple pages).",
+                recommendation="Add contextual internal links to related pages for better crawlability and user navigation.",
+                path=path,
+            ))
+
+    # -- MISSING_BREADCRUMB_SCHEMA --
+    has_breadcrumb = False
+    for html in pages.values():
+        jsonld_scripts = re.findall(
+            r'<script[^>]+type\s*=\s*["\']application/ld\+json["\'][^>]*>(.*?)</script>', html, re.I | re.S,
+        )
+        for script in jsonld_scripts:
+            if "breadcrumb" in script.lower():
+                has_breadcrumb = True
+                break
+        if has_breadcrumb:
+            break
+    if not has_breadcrumb and len(pages) >= 3:
+        findings.append(Finding(
+            "MISSING_BREADCRUMB_SCHEMA", "low",
+            "No BreadcrumbList structured data detected on any page.",
+            recommendation="Add BreadcrumbList JSON-LD to help search engines understand site hierarchy.",
+        ))
+
+
 def review_seo(public_pages: dict[str, str]) -> dict:
     findings: list[Finding] = []
 
@@ -217,6 +342,8 @@ def review_seo(public_pages: dict[str, str]) -> dict:
         h = html.lower()
         if "privacy" not in h and "terms" not in h and path in {"/", "index.html", "home"}:
             findings.append(Finding("MISSING_LEGAL_FOOTER_LINKS", "low", "Homepage/footer does not show privacy/terms links.", path=path))
+
+    _check_site_wide_seo(public_pages, findings)
 
     score = score_from_findings(findings)
     return ReviewResult(

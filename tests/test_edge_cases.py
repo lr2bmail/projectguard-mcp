@@ -237,3 +237,123 @@ def test_file_plan_unsafe_path_flagged():
     result = review_file_plan("web app", ["../../../etc/passwd"])
     codes = {f["code"] for f in result["findings"]}
     assert "UNSAFE_PATH" in codes
+
+
+# -- New SEO site-wide checks --
+
+
+def test_seo_sitemap_missing_flagged():
+    pages = {
+        "index.html": "<html><head><title>Home</title></head><body><h1>Home</h1><p>" + "word " * 600 + "</p></body></html>",
+        "about.html": "<html><head><title>About</title></head><body><h1>About</h1><p>" + "word " * 400 + "</p></body></html>",
+    }
+    result = review_seo(pages)
+    codes = {f["code"] for f in result["findings"]}
+    assert "MISSING_SITEMAP_XML" in codes
+
+
+def test_seo_robots_txt_missing_flagged():
+    pages = {
+        "index.html": "<html><head><title>Home</title></head><body><h1>Home</h1><p>" + "word " * 600 + "</p></body></html>",
+        "about.html": "<html><head><title>About</title></head><body><h1>About</h1><p>" + "word " * 400 + "</p></body></html>",
+    }
+    result = review_seo(pages)
+    codes = {f["code"] for f in result["findings"]}
+    assert "MISSING_ROBOTS_TXT" in codes
+
+
+def test_seo_compression_missing_flagged():
+    pages = {
+        "index.html": "<html><head><title>Home</title></head><body><h1>Home</h1><p>" + "word " * 600 + "</p></body></html>",
+        "about.html": "<html><head><title>About</title></head><body><h1>About</h1><p>" + "word " * 400 + "</p></body></html>",
+    }
+    result = review_seo(pages)
+    codes = {f["code"] for f in result["findings"]}
+    assert "COMPRESSION_NOT_ENABLED" in codes
+
+
+def test_seo_generic_og_image_flagged():
+    img = "https://example.com/og-default.png"
+    pages = {
+        "index.html": f'<html><head><title>Home</title><meta property="og:image" content="{img}"></head><body><h1>Home</h1><p>' + "word " * 600 + "</p></body></html>",
+        "about.html": f'<html><head><title>About</title><meta property="og:image" content="{img}"></head><body><h1>About</h1><p>' + "word " * 400 + "</p></body></html>",
+        "contact.html": f'<html><head><title>Contact</title><meta property="og:image" content="{img}"></head><body><h1>Contact</h1><p>' + "word " * 400 + "</p></body></html>",
+    }
+    result = review_seo(pages)
+    codes = {f["code"] for f in result["findings"]}
+    assert "GENERIC_OG_IMAGE" in codes
+
+
+def test_seo_internal_linking_weak_flagged():
+    pages = {
+        "index.html": "<html><head><title>Home</title></head><body><h1>Home</h1><p>" + "word " * 600 + "</p></body></html>",
+        "about.html": "<html><head><title>About</title></head><body><h1>About</h1><p>" + "word " * 400 + "</p></body></html>",
+        "contact.html": "<html><head><title>Contact</title></head><body><h1>Contact</h1><p>" + "word " * 400 + "</p></body></html>",
+    }
+    result = review_seo(pages)
+    codes = {f["code"] for f in result["findings"]}
+    assert "INTERNAL_LINKING_WEAK" in codes
+
+
+def test_seo_canonical_mismatch_flagged():
+    pages = {
+        "index.html": '<html><head><title>Home</title><link rel="canonical" href="https://example.com/"></head><body><h1>Home</h1><p>' + "word " * 600 + "</p></body></html>",
+        "about.html": '<html><head><title>About</title><link rel="canonical" href="https://example.com/"></head><body><h1>About</h1><p>' + "word " * 400 + "</p></body></html>",
+    }
+    result = review_seo(pages)
+    codes = {f["code"] for f in result["findings"]}
+    assert "CANONICAL_MISMATCH" in codes
+
+
+def test_seo_breadcrumb_missing_flagged():
+    pages = {
+        "index.html": "<html><head><title>Home</title></head><body><h1>Home</h1><p>" + "word " * 600 + "</p></body></html>",
+        "about.html": "<html><head><title>About</title></head><body><h1>About</h1><p>" + "word " * 400 + "</p></body></html>",
+        "contact.html": "<html><head><title>Contact</title></head><body><h1>Contact</h1><p>" + "word " * 400 + "</p></body></html>",
+    }
+    result = review_seo(pages)
+    codes = {f["code"] for f in result["findings"]}
+    assert "MISSING_BREADCRUMB_SCHEMA" in codes
+
+
+# -- New security check: SSRF protection --
+
+
+def test_security_ssrf_protection_missing():
+    files = {"server.py": "import requests\nurl = request.args.get('url')\nrequests.get(url)"}
+    result = review_security("web app", files, ["api"])
+    codes = {f["code"] for f in result["findings"]}
+    assert "SSRF_PROTECTION_MISSING" in codes
+
+
+def test_security_ssrf_protection_present_not_flagged():
+    files = {"server.py": "import requests\nfrom utils import validate_url\nurl = request.args.get('url')\nrequests.get(validate_url(url))"}
+    result = review_security("web app", files, ["api"])
+    codes = {f["code"] for f in result["findings"]}
+    assert "SSRF_PROTECTION_MISSING" not in codes
+
+
+# -- New anti-slop check: Contradictory privacy claims --
+
+
+def test_anti_slop_contradictory_privacy_flagged():
+    text = (
+        "Welcome to PrivateMail, the fully anonymous and private email service. "
+        "We believe in no tracking and complete privacy. "
+        "Our Google Analytics integration helps us improve your experience. "
+        "We also use Facebook Pixel for better targeting."
+    )
+    result = review_project_text(text)
+    codes = {f["code"] for f in result["findings"]}
+    assert "CONTRADICTORY_PRIVACY_CLAIMS" in codes
+
+
+def test_anti_slop_legitimate_privacy_policy_not_flagged():
+    text = (
+        "Privacy Policy: We use Google Analytics to understand how visitors use our website. "
+        "This helps us improve our service. We collect anonymous usage data and do not sell "
+        "personal information to third parties. You can opt out of tracking at any time."
+    )
+    result = review_project_text(text)
+    codes = {f["code"] for f in result["findings"]}
+    assert "CONTRADICTORY_PRIVACY_CLAIMS" not in codes

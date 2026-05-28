@@ -6,7 +6,8 @@ from projectguard_mcp.models import Finding, ReviewResult, approval_from_score, 
 
 PROVIDER_WORDS = ["stripe", "paypal", "nowpayments", "paddle", "lemonsqueezy", "checkout"]
 PAYMENT_CONTEXT_WORDS = ["payment", "checkout", "invoice", "refund", "balance", "wallet", "add funds"]
-WEBHOOK_WORDS = ["webhook", "event", "payment_intent", "checkout.session", "ipn"]
+WEBHOOK_WORDS = ["webhook", "payment_intent", "checkout.session.completed", "checkout.session.async", "ipn",
+                  "handle_event", "process_event", "on_event", "event_handler"]
 SIGNATURE_WORDS = ["signature", "construct_event", "webhooksecret", "verify", "verify_signature", "x-paypal"]
 IDEMPOTENCY_WORDS = ["idempot", "event_id", "provider_event_id", "webhook_event_id", "processed_events", "dedupe"]
 AMOUNT_WORDS = ["amount", "currency", "total", "price", "paid_amount"]

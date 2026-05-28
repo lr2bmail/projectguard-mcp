@@ -18,7 +18,12 @@ GOOD_HTML = """<html lang="en">
     <h1>Main Heading</h1>
     <p>This page has enough content to not be flagged as thin content. It describes a product
     or service with meaningful information that would be useful for visitors and search engines.
-    The content is detailed and specific.</p>
+    The content is detailed and specific. We provide tools that help developers build better
+    applications with proper testing, security reviews, and quality gates. Our platform supports
+    multiple programming languages and frameworks. Users can configure custom rules and thresholds
+    for their specific project needs. The service integrates with popular development tools and
+    continuous integration pipelines. Documentation is available for all features with practical
+    examples and step-by-step guides. Community support is provided through forums and chat channels.</p>
     <img src="photo.jpg" alt="A descriptive alt text" width="800" height="600">
     <a href="/privacy">Privacy</a> <a href="/terms">Terms</a>
 </body>
