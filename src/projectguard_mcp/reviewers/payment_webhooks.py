@@ -5,6 +5,7 @@ import re
 from projectguard_mcp.models import Finding, ReviewResult, approval_from_score, score_from_findings
 
 PROVIDER_WORDS = ["stripe", "paypal", "nowpayments", "paddle", "lemonsqueezy", "checkout"]
+PAYMENT_CONTEXT_WORDS = ["payment", "checkout", "invoice", "refund", "balance", "wallet", "add funds"]
 WEBHOOK_WORDS = ["webhook", "event", "payment_intent", "checkout.session", "ipn"]
 SIGNATURE_WORDS = ["signature", "construct_event", "webhooksecret", "verify", "verify_signature", "x-paypal"]
 IDEMPOTENCY_WORDS = ["idempot", "event_id", "provider_event_id", "webhook_event_id", "processed_events", "dedupe"]
@@ -37,10 +38,7 @@ def review_payment_webhook_security(
     findings: list[Finding] = []
     all_text = _blob(files)
     context = " ".join([project_type or "", " ".join(features or []), all_text]).lower()
-    payment_context = _has_any(context, PROVIDER_WORDS + PAYMENT_CONTEXT_WORDS) if False else _has_any(
-        context,
-        PROVIDER_WORDS + ["payment", "checkout", "invoice", "refund", "balance", "wallet", "add funds"],
-    )
+    payment_context = _has_any(context, PROVIDER_WORDS + PAYMENT_CONTEXT_WORDS)
 
     if not payment_context:
         findings.append(Finding(
