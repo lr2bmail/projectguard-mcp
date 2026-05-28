@@ -220,7 +220,12 @@ def _check_file_security(path: str, content: str, ext: str, findings: list[Findi
         ))
 
     # -- Insecure session config --
-    if re.search(r"SESSION_COOKIE_SECURE['\"\]]*\s*=\s*False|cookie\s*=\s*{.*secure\s*:\s*False", content, re.I):
+    if re.search(
+        r"SESSION_COOKIE_SECURE['\"\]]*\s*[:=]\s*False|cookie\s*=\s*{.*secure\s*:\s*False|"
+        r"SESSION_COOKIE_SECURE['\"\]]*\s*[:=]\s*false",
+        content,
+        re.I,
+    ):
         findings.append(Finding(
             code="INSECURE_SESSION_CONFIG",
             severity="high",

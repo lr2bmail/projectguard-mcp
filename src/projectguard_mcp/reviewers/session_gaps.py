@@ -211,10 +211,12 @@ def _extract_actions(summary: str, files: dict[str, str] | None) -> list[str]:
     if files:
         text += " " + " ".join(files.values()).lower()[:20000]
 
+    seen: set[str] = set()
     matched_topics: list[str] = []
     for keywords, topic in SESSION_ACTION_TOPICS:
-        if any(kw in text for kw in keywords):
+        if topic not in seen and any(kw in text for kw in keywords):
             matched_topics.append(topic)
+            seen.add(topic)
     return matched_topics
 
 
